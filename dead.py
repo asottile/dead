@@ -83,7 +83,15 @@ class Visitor(ast.NodeVisitor):
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if isinstance(node.ctx, ast.Load):
             self.reads_target[node.attr].add(self.filename)
+        self.generic_visit(node)
 
+    def visit_Call(self, node: ast.Call) ->None:
+        """Mark the attributes that read by getattr"""
+        if (isinstance(node.func, ast.Name)
+                and node.func.id == 'getattr'
+                and isinstance(node.args[1], ast.Str)):
+            attr = node.args[1].s
+            self.reads_target[attr].add(self.filename)
         self.generic_visit(node)
 
 
