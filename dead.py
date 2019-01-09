@@ -59,7 +59,7 @@ class Visitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def definition_str(self, node: ast.AST) -> str:
-        return f"{self.filename}:{node.lineno}"
+        return f'{self.filename}:{node.lineno}'
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         if not self.is_test:
