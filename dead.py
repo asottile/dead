@@ -12,12 +12,10 @@ from typing import Pattern
 from typing import Sequence
 from typing import Set
 from typing import Tuple
-from typing import Union
 
 from identify.identify import tags_from_path
 
 UsageMap = DefaultDict[str, Set[str]]
-DefinitionAST = Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef]
 
 
 class Visitor(ast.NodeVisitor):
@@ -59,9 +57,6 @@ class Visitor(ast.NodeVisitor):
         if not self.is_test:
             self.defines[node.name].add(self.definition_str(node))
         self.generic_visit(node)
-
-    def mark_definition(self, node: DefinitionAST) -> None:
-        self.defines[node.name].add(self.definition_str(node))
 
     def definition_str(self, node: ast.AST) -> str:
         return f"{self.filename}:{node.lineno}"
