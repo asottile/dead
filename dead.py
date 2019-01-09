@@ -12,10 +12,12 @@ from typing import Pattern
 from typing import Sequence
 from typing import Set
 from typing import Tuple
+from typing import Union
 
 from identify.identify import tags_from_path
 
 UsageMap = DefaultDict[str, Set[str]]
+DefinitionAST = Union[ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef]
 
 
 class Visitor(ast.NodeVisitor):
@@ -55,12 +57,19 @@ class Visitor(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         if not self.is_test:
-            self.defines[node.name].add(self.filename)
+            self.mark_definition(node)
         self.generic_visit(node)
+
+    def mark_definition(self, node: DefinitionAST) -> None:
+        """Marks the code defined by `node` as defined"""
+        self.defines[node.name].add(self.defenition_str(node))
+
+    def defenition_str(self, node: Union[DefinitionAST, ast.Assign]) -> str:
+        return f"{self.filename}:{node.lineno}"
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         if not self.is_test:
-            self.defines[node.name].add(self.filename)
+            self.mark_definition(node)
         self.generic_visit(node)
 
     visit_AsyncFunctionDef = visit_FunctionDef
@@ -69,7 +78,7 @@ class Visitor(ast.NodeVisitor):
         if not self.is_test:
             for target in node.targets:
                 if isinstance(target, ast.Name):
-                    self.defines[target.id].add(self.filename)
+                    self.defines[target.id].add(self.defenition_str(node))
         self.generic_visit(node)
 
     # TODO: AnnAssign
@@ -96,9 +105,9 @@ def _filenames(
     out = subprocess.check_output(('git', 'ls-files')).decode()
     for filename in out.splitlines():
         if (
-                not files_re.search(filename) or
-                exclude_re.search(filename) or
-                'python' not in tags_from_path(filename)
+                not files_re.search(filename)
+                or exclude_re.search(filename)
+                or 'python' not in tags_from_path(filename)
         ):
             continue
 
