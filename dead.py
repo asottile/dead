@@ -55,12 +55,15 @@ class Visitor(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         if not self.is_test:
-            self.defines[node.name].add(self.filename)
+            self.defines[node.name].add(self.definition_str(node))
         self.generic_visit(node)
+
+    def definition_str(self, node: ast.AST) -> str:
+        return f'{self.filename}:{node.lineno}'
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         if not self.is_test:
-            self.defines[node.name].add(self.filename)
+            self.defines[node.name].add(self.definition_str(node))
         self.generic_visit(node)
 
     visit_AsyncFunctionDef = visit_FunctionDef
@@ -69,7 +72,7 @@ class Visitor(ast.NodeVisitor):
         if not self.is_test:
             for target in node.targets:
                 if isinstance(target, ast.Name):
-                    self.defines[target.id].add(self.filename)
+                    self.defines[target.id].add(self.definition_str(node))
         self.generic_visit(node)
 
     # TODO: AnnAssign
