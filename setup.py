@@ -4,7 +4,7 @@ setup(
     name='dead',
     description='dead simple python dead code detection',
     url='https://github.com/asottile/dead',
-    version='0.0.1',
+    version='0.0.2',
     author='Anthony Sottile',
     author_email='asottile@umich.edu',
     classifiers=[
