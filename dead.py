@@ -5,6 +5,7 @@ import contextlib
 import os.path
 import re
 import subprocess
+import tokenize
 from typing import DefaultDict
 from typing import Generator
 from typing import Optional
@@ -16,6 +17,12 @@ from typing import Tuple
 from identify.identify import tags_from_path
 
 UsageMap = DefaultDict[str, Set[str]]
+# https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L102-L104
+TYPE_COMMENT_RE = re.compile(r'^#\s*type:\s*')
+# https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L1400
+TYPE_IGNORE_RE = re.compile(TYPE_COMMENT_RE.pattern + r'ignore\s*(#|$)')
+# https://github.com/python/typed_ast/blob/55420396/ast27/Grammar/Grammar#L147
+TYPE_FUNC_RE = re.compile(r'^(\(.*?\))\s*->\s*(.*)$')
 
 
 class Visitor(ast.NodeVisitor):
@@ -88,6 +95,26 @@ class Visitor(ast.NodeVisitor):
             self.reads_target[node.attr].add(self.filename)
 
         self.generic_visit(node)
+
+    def visit_comment(self, lineno: int, line: str) -> None:
+        if not TYPE_COMMENT_RE.match(line) or TYPE_IGNORE_RE.match(line):
+            return
+
+        line = line.split(':', 1)[1].strip()
+        func_match = TYPE_FUNC_RE.match(line)
+        if not func_match:
+            parts: Tuple[str, ...] = (line,)
+        else:
+            parts = (func_match.group(1), func_match.group(2).strip())
+
+        for part in parts:
+            ast_obj = ast.parse(part, f'<{self.filename}:{lineno}: comment>')
+            # adjust the line number to be that of the comment
+            for descendant in ast.walk(ast_obj):
+                if 'lineno' in descendant._attributes:
+                    descendant.lineno = lineno
+
+            self.visit(ast_obj)
 
 
 def _filenames(
@@ -175,6 +202,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         with visitor.file_ctx(filename, is_test=is_test):
             visitor.visit(tree)
+
+            with open(filename, 'rb') as f:
+                for tp, s, (lineno, _), _, _ in tokenize.tokenize(f.readline):
+                    if tp == tokenize.COMMENT:
+                        visitor.visit_comment(lineno, s)
 
     for k, v in visitor.defines.items():
         if k.startswith('__') and k.endswith('__'):
