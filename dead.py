@@ -105,7 +105,10 @@ class Visitor(ast.NodeVisitor):
         if not func_match:
             parts: Tuple[str, ...] = (line,)
         else:
-            parts = (func_match.group(1), func_match.group(2).strip())
+            parts = (
+                func_match.group(1).replace('*', ''),
+                func_match.group(2).strip(),
+            )
 
         for part in parts:
             ast_obj = ast.parse(part, f'<{self.filename}:{lineno}: comment>')
