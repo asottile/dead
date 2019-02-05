@@ -211,15 +211,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     if tp == tokenize.COMMENT:
                         visitor.visit_comment(lineno, s)
 
+    retv = 0
+
     for k, v in visitor.defines.items():
         if k.startswith('__') and k.endswith('__'):
             pass  # skip magic methods, probably an interface
         elif k not in visitor.reads and k not in visitor.reads_tests:
             print(f'{k} is never read, defined in {v}')
+            retv = 1
         elif k not in visitor.reads:
             print(f'{k} is only referenced in tests, defined in {v}')
+            retv = 1
 
-    return 0
+    return retv
 
 
 if __name__ == '__main__':
