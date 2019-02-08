@@ -9,6 +9,7 @@ repos:
     -   id: debug-statements
     -   id: requirements-txt-fixer
     -   id: double-quote-string-fixer
+    -   id: name-tests-test
 -   repo: https://gitlab.com/pycqa/flake8
     rev: 3.7.1
     hooks:
