@@ -25,7 +25,7 @@ TYPE_COMMENT_RE = re.compile(r'^#\s*type:\s*')
 TYPE_IGNORE_RE = re.compile(TYPE_COMMENT_RE.pattern + r'ignore\s*(#|$)')
 # https://github.com/python/typed_ast/blob/55420396/ast27/Grammar/Grammar#L147
 TYPE_FUNC_RE = re.compile(r'^(\(.*?\))\s*->\s*(.*)$')
-DISABLE_COMMENT_RE = re.compile(r'dead\s*:\s*disable')
+DISABLE_COMMENT_RE = re.compile(r'\bdead\s*:\s*disable')
 
 
 class Visitor(ast.NodeVisitor):
@@ -33,9 +33,9 @@ class Visitor(ast.NodeVisitor):
         self.filename = ''
         self.is_test = False
         self.reads: UsageMap = collections.defaultdict(set)
-        self.defines: Set[Tuple[str, str, int]] = set()
+        self.defines: UsageMap = collections.defaultdict(set)
         self.reads_tests: UsageMap = collections.defaultdict(set)
-        self.disabled: Set[Tuple[str, int]] = set()
+        self.disabled: Set[FileLine] = set()
 
     @contextlib.contextmanager
     def file_ctx(
@@ -56,25 +56,28 @@ class Visitor(ast.NodeVisitor):
     def reads_target(self) -> UsageMap:
         return self.reads_tests if self.is_test else self.reads
 
+    def _file_line(self, filename: str, line: int) -> FileLine:
+        return FileLine(f'{filename}:{line}')
+
     def definition_str(self, node: ast.AST) -> FileLine:
-        return FileLine(f'{self.filename}:{node.lineno}')
+        return self._file_line(self.filename, node.lineno)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         for name in node.names:
             self.reads_target[name.name].add(self.definition_str(node))
             if not self.is_test and name.asname:
-                self.defines.add((name.asname, self.filename, node.lineno))
+                self.defines[name.asname].add(self.definition_str(node))
 
         self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         if not self.is_test:
-            self.defines.add((node.name, self.filename, node.lineno))
+            self.defines[node.name].add(self.definition_str(node))
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         if not self.is_test:
-            self.defines.add((node.name, self.filename, node.lineno))
+            self.defines[node.name].add(self.definition_str(node))
         self.generic_visit(node)
 
     visit_AsyncFunctionDef = visit_FunctionDef
@@ -83,7 +86,7 @@ class Visitor(ast.NodeVisitor):
         if not self.is_test:
             for target in node.targets:
                 if isinstance(target, ast.Name):
-                    self.defines.add((target.id, self.filename, node.lineno))
+                    self.defines[target.id].add(self.definition_str(node))
         self.generic_visit(node)
 
     # TODO: AnnAssign
@@ -102,7 +105,7 @@ class Visitor(ast.NodeVisitor):
 
     def visit_comment(self, lineno: int, line: str) -> None:
         if DISABLE_COMMENT_RE.search(line):
-            self.disabled.add((self.filename, lineno))
+            self.disabled.add(self._file_line(self.filename, lineno))
 
         if not TYPE_COMMENT_RE.match(line) or TYPE_IGNORE_RE.match(line):
             return
@@ -125,17 +128,6 @@ class Visitor(ast.NodeVisitor):
                     descendant.lineno = lineno
 
             self.visit(ast_obj)
-
-    def visit_file(self, filename: str, is_test: bool) -> None:
-        tree = _ast(filename)
-
-        with self.file_ctx(filename, is_test=is_test):
-            self.visit(tree)
-
-            with open(filename, 'rb') as f:
-                for tp, s, (lineno, _), _, _ in tokenize.tokenize(f.readline):
-                    if tp == tokenize.COMMENT:
-                        self.visit_comment(lineno, s)
 
 
 def _filenames(
@@ -186,22 +178,6 @@ def parse_entry_points_setup_py(visitor: Visitor) -> None:
         ParsesEntryPoints(visitor).visit(_ast('setup.py'))
 
 
-def find_unused(visitor: Visitor) -> Generator[str, None, None]:
-    for name, filename, lineno in visitor.defines:
-        if (filename, lineno) in visitor.disabled:
-            continue
-
-        if name.startswith('__') and name.endswith('__'):
-            continue  # skip magic methods, probably an interface
-
-        location = f'{filename}:{lineno}'
-
-        if name not in visitor.reads and name not in visitor.reads_tests:
-            yield f'{name} is never read, defined in {location}'
-        elif name not in visitor.reads:
-            yield f'{name} is only referenced in tests, defined in {location}'
-
-
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -236,17 +212,43 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     files_re = re.compile(args.files)
     exclude_re = re.compile(args.exclude)
     tests_re = re.compile(args.tests)
-
     for filename, is_test in _filenames(files_re, exclude_re, tests_re):
-        visitor.visit_file(filename, is_test)
+        tree = _ast(filename)
+
+        with visitor.file_ctx(filename, is_test=is_test):
+            visitor.visit(tree)
+
+            with open(filename, 'rb') as f:
+                for tp, s, (lineno, _), _, _ in tokenize.tokenize(f.readline):
+                    if tp == tokenize.COMMENT:
+                        visitor.visit_comment(lineno, s)
 
     retv = 0
-    for msg in find_unused(visitor):
-        print(msg)
-        retv = 1
 
-    if visitor.disabled:
-        print(f'disabled {len(visitor.disabled)} times')
+    unused_ignores = visitor.disabled.copy()
+    for k, v in visitor.defines.items():
+        if k not in visitor.reads:
+            unused_ignores.difference_update(v)
+            v = v - visitor.disabled
+
+        if k.startswith('__') and k.endswith('__'):
+            pass  # skip magic methods, probably an interface
+        elif k not in visitor.reads and not v - visitor.disabled:
+            pass  # all references disabled
+        elif k not in visitor.reads and k not in visitor.reads_tests:
+            print(f'{k} is never read, defined in {", ".join(sorted(v))}')
+            retv = 1
+        elif k not in visitor.reads:
+            print(
+                f'{k} is only referenced in tests, '
+                f'defined in {", ".join(sorted(v))}',
+            )
+            retv = 1
+
+    if unused_ignores:
+        for ignore in sorted(unused_ignores):
+            print(f'{ignore}: unused `# dead: disable`')
+            retv = 1
 
     return retv
 
