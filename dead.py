@@ -25,6 +25,7 @@ TYPE_COMMENT_RE = re.compile(r'^#\s*type:\s*')
 TYPE_IGNORE_RE = re.compile(TYPE_COMMENT_RE.pattern + r'ignore\s*(#|$)')
 # https://github.com/python/typed_ast/blob/55420396/ast27/Grammar/Grammar#L147
 TYPE_FUNC_RE = re.compile(r'^(\(.*?\))\s*->\s*(.*)$')
+DISABLE_COMMENT_RE = re.compile(r'\bdead\s*:\s*disable')
 
 
 class Visitor(ast.NodeVisitor):
@@ -34,6 +35,7 @@ class Visitor(ast.NodeVisitor):
         self.reads: UsageMap = collections.defaultdict(set)
         self.defines: UsageMap = collections.defaultdict(set)
         self.reads_tests: UsageMap = collections.defaultdict(set)
+        self.disabled: Set[FileLine] = set()
 
     @contextlib.contextmanager
     def file_ctx(
@@ -54,8 +56,11 @@ class Visitor(ast.NodeVisitor):
     def reads_target(self) -> UsageMap:
         return self.reads_tests if self.is_test else self.reads
 
+    def _file_line(self, filename: str, line: int) -> FileLine:
+        return FileLine(f'{filename}:{line}')
+
     def definition_str(self, node: ast.AST) -> FileLine:
-        return FileLine(f'{self.filename}:{node.lineno}')
+        return self._file_line(self.filename, node.lineno)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         for name in node.names:
@@ -99,6 +104,9 @@ class Visitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_comment(self, lineno: int, line: str) -> None:
+        if DISABLE_COMMENT_RE.search(line):
+            self.disabled.add(self._file_line(self.filename, lineno))
+
         if not TYPE_COMMENT_RE.match(line) or TYPE_IGNORE_RE.match(line):
             return
 
@@ -217,14 +225,29 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     retv = 0
 
+    unused_ignores = visitor.disabled.copy()
     for k, v in visitor.defines.items():
+        if k not in visitor.reads:
+            unused_ignores.difference_update(v)
+            v = v - visitor.disabled
+
         if k.startswith('__') and k.endswith('__'):
             pass  # skip magic methods, probably an interface
+        elif k not in visitor.reads and not v - visitor.disabled:
+            pass  # all references disabled
         elif k not in visitor.reads and k not in visitor.reads_tests:
-            print(f'{k} is never read, defined in {v}')
+            print(f'{k} is never read, defined in {", ".join(sorted(v))}')
             retv = 1
         elif k not in visitor.reads:
-            print(f'{k} is only referenced in tests, defined in {v}')
+            print(
+                f'{k} is only referenced in tests, '
+                f'defined in {", ".join(sorted(v))}',
+            )
+            retv = 1
+
+    if unused_ignores:
+        for ignore in sorted(unused_ignores):
+            print(f'{ignore}: unused `# dead: disable`')
             retv = 1
 
     return retv
