@@ -8,6 +8,7 @@ import subprocess
 import tokenize
 from typing import DefaultDict
 from typing import Generator
+from typing import NewType
 from typing import Optional
 from typing import Pattern
 from typing import Sequence
@@ -16,7 +17,8 @@ from typing import Tuple
 
 from identify.identify import tags_from_path
 
-UsageMap = DefaultDict[str, Set[str]]
+FileLine = NewType('FileLine', str)
+UsageMap = DefaultDict[str, Set[FileLine]]
 # https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L102-L104
 TYPE_COMMENT_RE = re.compile(r'^#\s*type:\s*')
 # https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L1400
@@ -52,11 +54,14 @@ class Visitor(ast.NodeVisitor):
     def reads_target(self) -> UsageMap:
         return self.reads_tests if self.is_test else self.reads
 
+    def definition_str(self, node: ast.AST) -> FileLine:
+        return FileLine(f'{self.filename}:{node.lineno}')
+
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         for name in node.names:
-            self.reads_target[name.name].add(self.filename)
+            self.reads_target[name.name].add(self.definition_str(node))
             if not self.is_test and name.asname:
-                self.defines[name.asname].add(self.filename)
+                self.defines[name.asname].add(self.definition_str(node))
 
         self.generic_visit(node)
 
@@ -64,9 +69,6 @@ class Visitor(ast.NodeVisitor):
         if not self.is_test:
             self.defines[node.name].add(self.definition_str(node))
         self.generic_visit(node)
-
-    def definition_str(self, node: ast.AST) -> str:
-        return f'{self.filename}:{node.lineno}'
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         if not self.is_test:
@@ -86,13 +88,13 @@ class Visitor(ast.NodeVisitor):
 
     def visit_Name(self, node: ast.Name) -> None:
         if isinstance(node.ctx, ast.Load):
-            self.reads_target[node.id].add(self.filename)
+            self.reads_target[node.id].add(self.definition_str(node))
 
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if isinstance(node.ctx, ast.Load):
-            self.reads_target[node.attr].add(self.filename)
+            self.reads_target[node.attr].add(self.definition_str(node))
 
         self.generic_visit(node)
 
@@ -155,7 +157,8 @@ class ParsesEntryPoints(ast.NodeVisitor):
     def visit_Str(self, node: ast.Str) -> None:
         match = ENTRYPOINT_RE.match(node.s)
         if match:
-            self.visitor.reads[match.group(1)].add('setup.py')
+            location = self.visitor.definition_str(node)
+            self.visitor.reads[match.group(1)].add(location)
         self.generic_visit(node)
 
 
@@ -163,7 +166,8 @@ def parse_entry_points_setup_py(visitor: Visitor) -> None:
     if not os.path.exists('setup.py'):
         return
 
-    ParsesEntryPoints(visitor).visit(_ast('setup.py'))
+    with visitor.file_ctx('setup.py', is_test=False):
+        ParsesEntryPoints(visitor).visit(_ast('setup.py'))
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
