@@ -28,6 +28,11 @@ optional arguments:
 
 run the `dead` utility from the root of a git repository.
 
+## suppressing `dead`
+
+The `# dead: disable` comment will tell `dead` to ignore
+any line which has reportedly dead code.
+
 ### how it works
 
 1. find all files in a repository using `git ls-files` and filtering:
