@@ -28,6 +28,19 @@ optional arguments:
 
 run the `dead` utility from the root of a git repository.
 
+## as a pre-commit hook
+
+See [pre-commit](https://github.com/pre-commit/pre-commit) for instructions
+
+Sample `.pre-commit-config.yaml`:
+
+```yaml
+-   repo: https://github.com/asottile/dead
+    rev: v0.0.4
+    hooks:
+    -   id: dead
+```
+
 ### how it works
 
 1. find all files in a repository using `git ls-files` and filtering:
