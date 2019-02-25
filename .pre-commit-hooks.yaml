@@ -1,0 +1,7 @@
+-   id: dead
+    name: detect dead code
+    description: dedead simple python dead code detection
+    entry: dead
+    language: python
+    language_version: python3
+    types: [python]
