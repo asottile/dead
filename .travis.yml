@@ -1,9 +1,16 @@
+dist: xenial
+
 language: python
+python:
+  - "3.6"
+  - "3.7"
+  - "3.8-dev"
+
 matrix:
-    include:
-        -   env: TOXENV=py36
-            python: 3.6
-install: pip install tox
+    allow_failures:
+        - python: "3.8-dev"
+
+install: pip install tox-travis
 script: tox
 cache:
     directories:
