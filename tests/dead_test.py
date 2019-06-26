@@ -28,7 +28,7 @@ def git_dir(tmpdir):
 @pytest.mark.parametrize(
     's',
     (
-        # asign
+        # assign
         'x = 1\nprint(x)\n',
         # function
         'def f(): ...\n'
@@ -61,9 +61,15 @@ def git_dir(tmpdir):
         'print(C())\n',
         # disabled by comment
         'def unused(): ... # dead: disable\n',
+        # exported in __all__
+        'def f(): ...\n'
+        '__all__ = ("f",)',
+        'def g(): ...\n'
+        'def f(): ...\n'
+        '__all__ = ["f", g.__name__]',
     ),
 )
-def test_is_mark_as_used(git_dir, capsys, s):
+def test_is_marked_as_used(git_dir, capsys, s):
     git_dir.join('f.py').write(s)
     subprocess.check_call(('git', 'add', '.'))
     assert not dead.main(())
