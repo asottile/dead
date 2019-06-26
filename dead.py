@@ -87,6 +87,17 @@ class Visitor(ast.NodeVisitor):
             for target in node.targets:
                 if isinstance(target, ast.Name):
                     self.defines[target.id].add(self.definition_str(node))
+
+        if (
+                len(node.targets) == 1 and
+                isinstance(node.targets[0], ast.Name) and
+                node.targets[0].id == '__all__' and
+                isinstance(node.value, (ast.Tuple, ast.List))
+        ):
+            for elt in node.value.elts:
+                if isinstance(elt, ast.Str):
+                    self.reads_target[elt.s].add(self.definition_str(elt))
+
         self.generic_visit(node)
 
     # TODO: AnnAssign
