@@ -78,6 +78,14 @@ class Visitor(ast.NodeVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         if not self.is_test:
             self.defines[node.name].add(self.definition_str(node))
+            for arg in (
+                    *node.args.args,
+                    node.args.vararg,
+                    *node.args.kwonlyargs,
+                    node.args.kwarg,
+            ):
+                if arg is not None:
+                    self.defines[arg.arg].add(self.definition_str(arg))
         self.generic_visit(node)
 
     visit_AsyncFunctionDef = visit_FunctionDef
@@ -244,6 +252,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         if k.startswith('__') and k.endswith('__'):
             pass  # skip magic methods, probably an interface
+        elif k == 'self':
+            pass  # often not used in tests
         elif k not in visitor.reads and not v - visitor.disabled:
             pass  # all references disabled
         elif k not in visitor.reads and k not in visitor.reads_tests:

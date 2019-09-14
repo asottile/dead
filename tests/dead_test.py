@@ -140,3 +140,16 @@ def test_partially_disabled(git_dir, capsys):
     assert dead.main(())
     out, _ = capsys.readouterr()
     assert out == 'x is never read, defined in f.py:1, f.py:3\n'
+
+
+def test_unused_argument(git_dir, capsys):
+    git_dir.join('f.py').write('def f(a, *b, c, **d): pass\nf')
+    subprocess.check_call(('git', 'add', '.'))
+    assert dead.main(())
+    out, _ = capsys.readouterr()
+    assert out == (
+        'a is never read, defined in f.py:1\n'
+        'b is never read, defined in f.py:1\n'
+        'c is never read, defined in f.py:1\n'
+        'd is never read, defined in f.py:1\n'
+    )
