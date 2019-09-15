@@ -153,3 +153,11 @@ def test_unused_argument(git_dir, capsys):
         'c is never read, defined in f.py:1\n'
         'd is never read, defined in f.py:1\n'
     )
+
+
+def test_unused_argument_in_scope(git_dir, capsys):
+    git_dir.join('f.py').write('def f(arg): pass\ndef arg(): pass\narg\nf\n')
+    subprocess.check_call(('git', 'add', '.'))
+    assert dead.main(())
+    out, _ = capsys.readouterr()
+    assert out == 'arg is never read, defined in f.py:1\n'

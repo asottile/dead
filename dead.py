@@ -8,6 +8,7 @@ import subprocess
 import tokenize
 from typing import DefaultDict
 from typing import Generator
+from typing import List
 from typing import NewType
 from typing import Optional
 from typing import Pattern
@@ -28,13 +29,19 @@ TYPE_FUNC_RE = re.compile(r'^(\(.*?\))\s*->\s*(.*)$')
 DISABLE_COMMENT_RE = re.compile(r'\bdead\s*:\s*disable')
 
 
+class Scope:
+    def __init__(self) -> None:
+        self.reads: UsageMap = collections.defaultdict(set)
+        self.defines: UsageMap = collections.defaultdict(set)
+        self.reads_tests: UsageMap = collections.defaultdict(set)
+
+
 class Visitor(ast.NodeVisitor):
     def __init__(self) -> None:
         self.filename = ''
         self.is_test = False
-        self.reads: UsageMap = collections.defaultdict(set)
-        self.defines: UsageMap = collections.defaultdict(set)
-        self.reads_tests: UsageMap = collections.defaultdict(set)
+        self.previous_scopes: List[Scope] = []
+        self.scopes = [Scope()]
         self.disabled: Set[FileLine] = set()
 
     @contextlib.contextmanager
@@ -52,9 +59,13 @@ class Visitor(ast.NodeVisitor):
             self.filename = orig_filename
             self.is_test = orig_is_test
 
-    @property
-    def reads_target(self) -> UsageMap:
-        return self.reads_tests if self.is_test else self.reads
+    @contextlib.contextmanager
+    def scope(self) -> Generator[None, None, None]:
+        self.scopes.append(Scope())
+        try:
+            yield
+        finally:
+            self.previous_scopes.append(self.scopes.pop())
 
     def _file_line(self, filename: str, line: int) -> FileLine:
         return FileLine(f'{filename}:{line}')
@@ -62,22 +73,32 @@ class Visitor(ast.NodeVisitor):
     def definition_str(self, node: ast.AST) -> FileLine:
         return self._file_line(self.filename, node.lineno)
 
+    def define(self, name: str, node: ast.AST) -> None:
+        if not self.is_test:
+            self.scopes[-1].defines[name].add(self.definition_str(node))
+
+    def read(self, name: str, node: ast.AST) -> None:
+        for scope in self.scopes:
+            if self.is_test:
+                scope.reads_tests[name].add(self.definition_str(node))
+            else:
+                scope.reads[name].add(self.definition_str(node))
+
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         for name in node.names:
-            self.reads_target[name.name].add(self.definition_str(node))
-            if not self.is_test and name.asname:
-                self.defines[name.asname].add(self.definition_str(node))
+            self.read(name.name, node)
+            if name.asname:
+                self.define(name.asname, node)
 
         self.generic_visit(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        if not self.is_test:
-            self.defines[node.name].add(self.definition_str(node))
+        self.define(node.name, node)
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
-        if not self.is_test:
-            self.defines[node.name].add(self.definition_str(node))
+        self.define(node.name, node)
+        with self.scope():
             for arg in (
                     *node.args.args,
                     node.args.vararg,
@@ -85,16 +106,15 @@ class Visitor(ast.NodeVisitor):
                     node.args.kwarg,
             ):
                 if arg is not None:
-                    self.defines[arg.arg].add(self.definition_str(arg))
-        self.generic_visit(node)
+                    self.define(arg.arg, arg)
+            self.generic_visit(node)
 
     visit_AsyncFunctionDef = visit_FunctionDef
 
     def visit_Assign(self, node: ast.Assign) -> None:
-        if not self.is_test:
-            for target in node.targets:
-                if isinstance(target, ast.Name):
-                    self.defines[target.id].add(self.definition_str(node))
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                self.define(target.id, node)
 
         if (
                 len(node.targets) == 1 and
@@ -104,7 +124,7 @@ class Visitor(ast.NodeVisitor):
         ):
             for elt in node.value.elts:
                 if isinstance(elt, ast.Str):
-                    self.reads_target[elt.s].add(self.definition_str(elt))
+                    self.read(elt.s, elt)
 
         self.generic_visit(node)
 
@@ -112,13 +132,13 @@ class Visitor(ast.NodeVisitor):
 
     def visit_Name(self, node: ast.Name) -> None:
         if isinstance(node.ctx, ast.Load):
-            self.reads_target[node.id].add(self.definition_str(node))
+            self.read(node.id, node)
 
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if isinstance(node.ctx, ast.Load):
-            self.reads_target[node.attr].add(self.definition_str(node))
+            self.read(node.attr, node)
 
         self.generic_visit(node)
 
@@ -184,8 +204,7 @@ class ParsesEntryPoints(ast.NodeVisitor):
     def visit_Str(self, node: ast.Str) -> None:
         match = ENTRYPOINT_RE.match(node.s)
         if match:
-            location = self.visitor.definition_str(node)
-            self.visitor.reads[match.group(1)].add(location)
+            self.visitor.read(match.group(1), node)
         self.generic_visit(node)
 
 
@@ -244,27 +263,29 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     retv = 0
 
+    visitor.previous_scopes.append(visitor.scopes.pop())
     unused_ignores = visitor.disabled.copy()
-    for k, v in visitor.defines.items():
-        if k not in visitor.reads:
-            unused_ignores.difference_update(v)
-            v = v - visitor.disabled
+    for scope in visitor.previous_scopes:
+        for k, v in scope.defines.items():
+            if k not in scope.reads:
+                unused_ignores.difference_update(v)
+                v = v - visitor.disabled
 
-        if k.startswith('__') and k.endswith('__'):
-            pass  # skip magic methods, probably an interface
-        elif k == 'self':
-            pass  # often not used in tests
-        elif k not in visitor.reads and not v - visitor.disabled:
-            pass  # all references disabled
-        elif k not in visitor.reads and k not in visitor.reads_tests:
-            print(f'{k} is never read, defined in {", ".join(sorted(v))}')
-            retv = 1
-        elif k not in visitor.reads:
-            print(
-                f'{k} is only referenced in tests, '
-                f'defined in {", ".join(sorted(v))}',
-            )
-            retv = 1
+            if k.startswith('__') and k.endswith('__'):
+                pass  # skip magic methods, probably an interface
+            elif k == 'self':
+                pass  # often not used in tests
+            elif k not in scope.reads and not v:
+                pass  # all references disabled
+            elif k not in scope.reads and k not in scope.reads_tests:
+                print(f'{k} is never read, defined in {", ".join(sorted(v))}')
+                retv = 1
+            elif k not in scope.reads:
+                print(
+                    f'{k} is only referenced in tests, '
+                    f'defined in {", ".join(sorted(v))}',
+                )
+                retv = 1
 
     if unused_ignores:
         for ignore in sorted(unused_ignores):
