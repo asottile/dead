@@ -1,6 +1,7 @@
 import argparse
 import ast
 import collections
+import configparser
 import contextlib
 import os.path
 import re
@@ -245,6 +246,25 @@ def parse_entry_points_setup_py(visitor: Visitor) -> None:
         ParsesEntryPoints(visitor).visit(_ast('setup.py'))
 
 
+def parse_entry_points_setup_cfg(visitor: Visitor) -> None:
+    if not os.path.exists('setup.cfg'):
+        return
+
+    with visitor.file_ctx('setup.cfg', is_test=False):
+        parser = configparser.ConfigParser()
+        parser.read('setup.cfg')
+        if 'options.entry_points' not in parser:
+            return
+
+        section = parser['options.entry_points']
+        for k, v in section.items():
+            for line in v.strip().splitlines():
+                match = ENTRYPOINT_RE.match(line)
+                if match:
+                    node = ast.fix_missing_locations(ast.Str(match.group(1)))
+                    visitor.read(match.group(1), node)
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -273,8 +293,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     visitor = Visitor()
 
-    # TODO: maybe look in setup.cfg / pyproject.toml
     parse_entry_points_setup_py(visitor)
+    parse_entry_points_setup_cfg(visitor)
 
     files_re = re.compile(args.files)
     exclude_re = re.compile(args.exclude)
