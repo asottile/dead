@@ -87,6 +87,35 @@ def test_setup_py_entrypoints_mark_as_used(git_dir, capsys):
     assert not any(capsys.readouterr())
 
 
+def test_setup_cfg_entry_points_marked_as_used(git_dir):
+    git_dir.join('setup.cfg').write(
+        '[options.entry_points]\n'
+        'console_scripts=\n'
+        '    X=x:main\n',
+    )
+    git_dir.join('x.py').write('def main(): ...')
+    subprocess.check_call(('git', 'add', '.'))
+    assert not dead.main(())
+
+
+def test_setup_cfg_without_entry_points(git_dir):
+    git_dir.join('setup.cfg').write(
+        '[wheel]\n'
+        'universal = 1\n',
+    )
+    subprocess.check_call(('git', 'add', '.'))
+    assert not dead.main(())
+
+
+def test_setup_cfg_without_attribute_entry_point(git_dir):
+    git_dir.join('setup.cfg').write(
+        '[options.entry_points]\n'
+        '    pip-custom-platform = pip_custom_platform.pymonkey\n',
+    )
+    subprocess.check_call(('git', 'add', '.'))
+    assert not dead.main(())
+
+
 def test_never_referenced(git_dir, capsys):
     git_dir.join('f.py').write('x = 1')
     subprocess.check_call(('git', 'add', '.'))
