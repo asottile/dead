@@ -302,8 +302,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
             if k.startswith('__') and k.endswith('__'):
                 pass  # skip magic methods, probably an interface
-            elif k == 'self':
-                pass  # often not used in tests
+            elif k in {'cls', 'self'}:
+                pass  # ignore conventional cls / self
             elif k not in scope.reads and not v:
                 pass  # all references disabled
             elif k not in scope.reads and k not in scope.reads_tests:

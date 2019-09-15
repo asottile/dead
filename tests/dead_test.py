@@ -197,3 +197,14 @@ def test_ignore_unused_arguments_stubs(git_dir):
     )
     subprocess.check_call(('git', 'add', '.'))
     assert not dead.main(())
+
+
+def test_ignored_arguments(git_dir):
+    git_dir.join('f.py').write(
+        'class C:\n'
+        '    @classmethod\n'
+        '    def f(cls): return 1\n'  # allow conventional `cls` method
+        'C.f',
+    )
+    subprocess.check_call(('git', 'add', '.'))
+    assert not dead.main(())
