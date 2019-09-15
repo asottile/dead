@@ -96,17 +96,46 @@ class Visitor(ast.NodeVisitor):
         self.define(node.name, node)
         self.generic_visit(node)
 
+    def _is_stub_function(self, node: ast.FunctionDef) -> bool:
+        for stmt in node.body:
+            if (
+                    isinstance(stmt, ast.Expr) and
+                    isinstance(stmt.value, (ast.Str, ast.Ellipsis))
+            ):
+                continue  # docstring or ...
+            elif isinstance(stmt, ast.Pass):
+                continue  # pass
+            elif (
+                    isinstance(stmt, ast.Raise) and
+                    stmt.cause is None and (
+                        (
+                            isinstance(stmt.exc, ast.Name) and
+                            stmt.exc.id == 'NotImplementedError'
+                        ) or (
+                            isinstance(stmt.exc, ast.Call) and
+                            isinstance(stmt.exc.func, ast.Name) and
+                            stmt.exc.func.id == 'NotImplementedError'
+                        )
+                    )
+            ):
+                continue  # raise NotImplementedError
+            else:
+                return False
+        else:
+            return True
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self.define(node.name, node)
         with self.scope():
-            for arg in (
-                    *node.args.args,
-                    node.args.vararg,
-                    *node.args.kwonlyargs,
-                    node.args.kwarg,
-            ):
-                if arg is not None:
-                    self.define(arg.arg, arg)
+            if not self._is_stub_function(node):
+                for arg in (
+                        *node.args.args,
+                        node.args.vararg,
+                        *node.args.kwonlyargs,
+                        node.args.kwarg,
+                ):
+                    if arg is not None:
+                        self.define(arg.arg, arg)
             self.generic_visit(node)
 
     visit_AsyncFunctionDef = visit_FunctionDef

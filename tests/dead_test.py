@@ -143,7 +143,7 @@ def test_partially_disabled(git_dir, capsys):
 
 
 def test_unused_argument(git_dir, capsys):
-    git_dir.join('f.py').write('def f(a, *b, c, **d): pass\nf')
+    git_dir.join('f.py').write('def f(a, *b, c, **d): return 1\nf')
     subprocess.check_call(('git', 'add', '.'))
     assert dead.main(())
     out, _ = capsys.readouterr()
@@ -156,8 +156,44 @@ def test_unused_argument(git_dir, capsys):
 
 
 def test_unused_argument_in_scope(git_dir, capsys):
-    git_dir.join('f.py').write('def f(arg): pass\ndef arg(): pass\narg\nf\n')
+    git_dir.join('f.py').write('def f(g): return 1\ndef g(): pass\ng\nf\n')
     subprocess.check_call(('git', 'add', '.'))
     assert dead.main(())
     out, _ = capsys.readouterr()
-    assert out == 'arg is never read, defined in f.py:1\n'
+    assert out == 'g is never read, defined in f.py:1\n'
+
+
+def test_using_an_argument(git_dir):
+    git_dir.join('f.py').write('def f(g): return g\nf')
+    subprocess.check_call(('git', 'add', '.'))
+    assert not dead.main(())
+
+
+def test_ignore_unused_arguments_stubs(git_dir):
+    git_dir.join('f.py').write(
+        'import abc\n'
+        'from typing import overload\n'
+        'class C:\n'
+        '    @abc.abstractmethod\n'
+        '    def func(self, arg1):\n'
+        '        pass\n'
+        'def func2(arg2):\n'
+        '    pass\n'
+        'def func3(arg3):\n'
+        '    pass\n'
+        '@overload\n'
+        'def func4(arg4):\n'
+        '    ...\n'
+        'def func5(arg5):\n'
+        '    """docstring but trivial"""\n'
+        'def func6(arg6):\n'
+        '    raise NotImplementedError\n'
+        'def func7(arg7):\n'
+        '    raise NotImplementedError()\n'
+        'def func8(arg8):\n'
+        '    """docstring plus raise"""\n'
+        '    raise NotImplementedError()\n'
+        'C.func, func2, func3, func4, func5, func6, func7, func8\n',
+    )
+    subprocess.check_call(('git', 'add', '.'))
+    assert not dead.main(())
