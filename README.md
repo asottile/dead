@@ -1,4 +1,5 @@
-[![Build Status](https://travis-ci.org/asottile/dead.svg?branch=master)](https://travis-ci.org/asottile/dead)
+[![Build Status](https://dev.azure.com/asottile/asottile/_apis/build/status/asottile.pyupgrade?branchName=master)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=32&branchName=master)
+[![Azure DevOps coverage](https://img.shields.io/azure-devops/coverage/asottile/asottile/32/master.svg)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=32&branchName=master)
 
 dead
 ====
