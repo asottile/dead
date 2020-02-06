@@ -76,6 +76,15 @@ def test_is_marked_as_used(git_dir, capsys, s):
     assert not any(capsys.readouterr())
 
 
+def test_deleted_file_dont_raise_error(git_dir):
+    git_dir.join('test-module.py').write(
+        'from setuptools import setup\n'
+    )
+    subprocess.check_call(('git', 'add', '.'))
+    subprocess.check_call(('rm', 'test-module.py'))
+    assert not dead.main(())
+
+
 def test_setup_py_entrypoints_mark_as_used(git_dir, capsys):
     git_dir.join('setup.py').write(
         'from setuptools import setup\n'
