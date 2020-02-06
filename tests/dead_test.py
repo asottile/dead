@@ -77,11 +77,10 @@ def test_is_marked_as_used(git_dir, capsys, s):
 
 
 def test_deleted_file_dont_raise_error(git_dir):
-    git_dir.join('test-module.py').write(
-        'from setuptools import setup\n'
-    )
+    module = git_dir.join('test-module.py')
+    module.write('print(1)')
     subprocess.check_call(('git', 'add', '.'))
-    subprocess.check_call(('rm', 'test-module.py'))
+    module.remove()
     assert not dead.main(())
 
 
