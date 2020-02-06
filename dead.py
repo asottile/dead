@@ -210,6 +210,7 @@ def _filenames(
         if (
                 not files_re.search(filename) or
                 exclude_re.search(filename) or
+                not os.path.exists(filename) or
                 'python' not in tags_from_path(filename)
         ):
             continue
