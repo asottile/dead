@@ -28,6 +28,7 @@ TYPE_IGNORE_RE = re.compile(TYPE_COMMENT_RE.pattern + r'ignore\s*(#|$)')
 # https://github.com/python/typed_ast/blob/55420396/ast27/Grammar/Grammar#L147
 TYPE_FUNC_RE = re.compile(r'^(\(.*?\))\s*->\s*(.*)$')
 DISABLE_COMMENT_RE = re.compile(r'\bdead\s*:\s*disable')
+STUB_EXCEPTIONS = frozenset(('AssertionError', 'NotImplementedError'))
 
 
 class Scope:
@@ -111,11 +112,11 @@ class Visitor(ast.NodeVisitor):
                     stmt.cause is None and (
                         (
                             isinstance(stmt.exc, ast.Name) and
-                            stmt.exc.id == 'NotImplementedError'
+                            stmt.exc.id in STUB_EXCEPTIONS
                         ) or (
                             isinstance(stmt.exc, ast.Call) and
                             isinstance(stmt.exc.func, ast.Name) and
-                            stmt.exc.func.id == 'NotImplementedError'
+                            stmt.exc.func.id in STUB_EXCEPTIONS
                         )
                     )
             ):
