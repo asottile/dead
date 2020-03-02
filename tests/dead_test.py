@@ -230,7 +230,9 @@ def test_ignore_unused_arguments_stubs(git_dir):
         'def func8(arg8):\n'
         '    """docstring plus raise"""\n'
         '    raise NotImplementedError()\n'
-        'C.func, func2, func3, func4, func5, func6, func7, func8\n',
+        'def func9(arg9):\n'
+        '    raise AssertionError("unreachable")\n'
+        'C.func, func2, func3, func4, func5, func6, func7, func8, func9\n',
     )
     subprocess.check_call(('git', 'add', '.'))
     assert not dead.main(())
