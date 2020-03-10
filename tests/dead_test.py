@@ -1,4 +1,5 @@
 import subprocess
+import sys
 
 import pytest
 
@@ -247,3 +248,16 @@ def test_ignored_arguments(git_dir):
     )
     subprocess.check_call(('git', 'add', '.'))
     assert not dead.main(())
+
+
+@pytest.mark.xfail(sys.version_info < (3, 8), reason='py38+')
+def test_unused_positional_only_argument(git_dir, capsys):  # pragma: no cover
+    git_dir.join('f.py').write(
+        'def f(unused, /):\n'
+        '    return 1\n'
+        'print(f)\n',
+    )
+    subprocess.check_call(('git', 'add', '.'))
+    assert dead.main(())
+    out, _ = capsys.readouterr()
+    assert out == 'unused is never read, defined in f.py:1\n'
