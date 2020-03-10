@@ -131,6 +131,7 @@ class Visitor(ast.NodeVisitor):
         with self.scope():
             if not self._is_stub_function(node):
                 for arg in (
+                        *getattr(node.args, 'posonlyargs', ()),
                         *node.args.args,
                         node.args.vararg,
                         *node.args.kwonlyargs,
