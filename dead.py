@@ -16,11 +16,13 @@ from typing import Pattern
 from typing import Sequence
 from typing import Set
 from typing import Tuple
+from typing import Union
 
 from identify.identify import tags_from_path
 
 FileLine = NewType('FileLine', str)
 UsageMap = DefaultDict[str, Set[FileLine]]
+FunctionDef = Union[ast.AsyncFunctionDef, ast.FunctionDef]
 # https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L102-L104
 TYPE_COMMENT_RE = re.compile(r'^#\s*type:\s*')
 # https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L1400
@@ -98,7 +100,7 @@ class Visitor(ast.NodeVisitor):
         self.define(node.name, node)
         self.generic_visit(node)
 
-    def _is_stub_function(self, node: ast.FunctionDef) -> bool:
+    def _is_stub_function(self, node: FunctionDef) -> bool:
         for stmt in node.body:
             if (
                     isinstance(stmt, ast.Expr) and
@@ -126,7 +128,7 @@ class Visitor(ast.NodeVisitor):
         else:
             return True
 
-    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+    def visit_FunctionDef(self, node: FunctionDef) -> None:
         self.define(node.name, node)
         with self.scope():
             if not self._is_stub_function(node):
