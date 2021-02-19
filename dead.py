@@ -25,8 +25,14 @@ UsageMap = DefaultDict[str, Set[FileLine]]
 FunctionDef = Union[ast.AsyncFunctionDef, ast.FunctionDef]
 # https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L102-L104
 TYPE_COMMENT_RE = re.compile(r'^#\s*type:\s*')
+# The following regex largely conforms to:
 # https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L1400
-TYPE_IGNORE_RE = re.compile(TYPE_COMMENT_RE.pattern + r'ignore\s*(#|$)')
+# However, it also supports MyPy's extended ignore syntax:
+# https://github.com/python/mypy/issues/7239
+TYPE_IGNORE_RE = re.compile(
+    TYPE_COMMENT_RE.pattern +
+    r'ignore\s*(?:\[[\w-]+(?:\s*,\s*[\w-]+)*\s*\]\s*)?(#|$)',
+)
 # https://github.com/python/typed_ast/blob/55420396/ast27/Grammar/Grammar#L147
 TYPE_FUNC_RE = re.compile(r'^(\(.*?\))\s*->\s*(.*)$')
 DISABLE_COMMENT_RE = re.compile(r'\bdead\s*:\s*disable')
