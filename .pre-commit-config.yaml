@@ -11,7 +11,7 @@ repos:
     -   id: double-quote-string-fixer
     -   id: name-tests-test
 -   repo: https://github.com/PyCQA/flake8
-    rev: 3.9.1
+    rev: 3.9.2
     hooks:
     -   id: flake8
 -   repo: https://github.com/pre-commit/mirrors-autopep8
@@ -29,7 +29,7 @@ repos:
     -   id: add-trailing-comma
         args: [--py36-plus]
 -   repo: https://github.com/asottile/pyupgrade
-    rev: v2.14.0
+    rev: v2.15.0
     hooks:
     -   id: pyupgrade
         args: [--py36-plus]
