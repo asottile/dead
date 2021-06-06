@@ -287,6 +287,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help='regex for file exclusion, default %(default)r',
     )
     parser.add_argument(
+        '--exclude-symbol', default='^$',
+        help='regex for symbol exclusion, default %(default)r',
+    )
+    parser.add_argument(
         '--tests', default='(^|/)(tests?|testing)/',
         help='regex to mark files as tests, default %(default)r',
     )
@@ -309,6 +313,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     files_re = re.compile(args.files)
     exclude_re = re.compile(args.exclude)
+    exclude_symbol_re = re.compile(args.exclude_symbol)
     tests_re = re.compile(args.tests)
     for filename, is_test in _filenames(files_re, exclude_re, tests_re):
         tree = _ast(filename)
@@ -337,6 +342,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 pass  # ignore conventional cls / self
             elif k not in scope.reads and not v:
                 pass  # all references disabled
+            elif exclude_symbol_re.match(k):
+                pass  # symbol matches symbols to ignore
             elif k not in scope.reads and k not in scope.reads_tests:
                 print(f'{k} is never read, defined in {", ".join(sorted(v))}')
                 retv = 1

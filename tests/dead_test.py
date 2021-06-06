@@ -301,6 +301,30 @@ def test_ignored_arguments(git_dir):
     assert not dead.main(())
 
 
+def test_regex_ignore_symbol(git_dir, capsys):
+    git_dir.join('f.py').write('_x = 1')
+    subprocess.check_call(('git', 'add', '.'))
+    assert dead.main(())
+    out, _ = capsys.readouterr()
+    assert out == '_x is never read, defined in f.py:1\n'
+    # now same with ignore symbol regex
+    assert not dead.main(("--exclude-symbol", "^_*"))
+
+
+def test_unused_argument_ignore_symbol(git_dir, capsys):
+    git_dir.join('f.py').write('def f(_a, *_b, _c, **_d): return 1\nf')
+    subprocess.check_call(('git', 'add', '.'))
+    assert dead.main(())
+    out, _ = capsys.readouterr()
+    assert out == (
+        '_a is never read, defined in f.py:1\n'
+        '_b is never read, defined in f.py:1\n'
+        '_c is never read, defined in f.py:1\n'
+        '_d is never read, defined in f.py:1\n'
+    )
+    # now same with ignore symbol regex
+    assert not dead.main(("--exclude-symbol", "^_*"))
+
 @pytest.mark.xfail(sys.version_info < (3, 8), reason='py38+')
 def test_unused_positional_only_argument(git_dir, capsys):  # pragma: no cover
     git_dir.join('f.py').write(
@@ -312,3 +336,4 @@ def test_unused_positional_only_argument(git_dir, capsys):  # pragma: no cover
     assert dead.main(())
     out, _ = capsys.readouterr()
     assert out == 'unused is never read, defined in f.py:1\n'
+
