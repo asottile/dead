@@ -302,7 +302,7 @@ def test_ignored_arguments(git_dir):
 
 
 @pytest.mark.xfail(sys.version_info < (3, 8), reason='py38+')
-def test_unused_positional_only_argument(git_dir, capsys):  # pragma: no cover
+def test_unused_posonly_argument(git_dir, capsys):  # pragma: >=3.8 cover
     git_dir.join('f.py').write(
         'def f(unused, /):\n'
         '    return 1\n'
