@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import ast
 import collections
@@ -9,13 +11,10 @@ import subprocess
 import tokenize
 from typing import DefaultDict
 from typing import Generator
-from typing import List
 from typing import NewType
-from typing import Optional
 from typing import Pattern
 from typing import Sequence
 from typing import Set
-from typing import Tuple
 from typing import Union
 
 from identify.identify import tags_from_path
@@ -50,9 +49,9 @@ class Visitor(ast.NodeVisitor):
     def __init__(self) -> None:
         self.filename = ''
         self.is_test = False
-        self.previous_scopes: List[Scope] = []
+        self.previous_scopes: list[Scope] = []
         self.scopes = [Scope()]
-        self.disabled: Set[FileLine] = set()
+        self.disabled: set[FileLine] = set()
 
     @contextlib.contextmanager
     def file_ctx(
@@ -192,7 +191,7 @@ class Visitor(ast.NodeVisitor):
         line = line.split(':', 1)[1].strip()
         func_match = TYPE_FUNC_RE.match(line)
         if not func_match:
-            parts: Tuple[str, ...] = (line,)
+            parts: tuple[str, ...] = (line,)
         else:
             parts = (
                 func_match.group(1).replace('*', ''),
@@ -213,7 +212,7 @@ def _filenames(
         files_re: Pattern[str],
         exclude_re: Pattern[str],
         tests_re: Pattern[str],
-) -> Generator[Tuple[str, bool], None, None]:
+) -> Generator[tuple[str, bool], None, None]:
     # TODO: zsplit is more correct than splitlines
     out = subprocess.check_output(('git', 'ls-files')).decode()
     for filename in out.splitlines():
@@ -276,7 +275,7 @@ def parse_entry_points_setup_cfg(visitor: Visitor) -> None:
                     visitor.read(match.group(1), node)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--files', default='',
