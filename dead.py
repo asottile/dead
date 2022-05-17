@@ -241,10 +241,11 @@ class ParsesEntryPoints(ast.NodeVisitor):
     def __init__(self, visitor: Visitor) -> None:
         self.visitor = visitor
 
-    def visit_Str(self, node: ast.Str) -> None:
-        match = ENTRYPOINT_RE.match(node.s)
-        if match:
-            self.visitor.read(match.group(1), node)
+    def visit_Constant(self, node: ast.Constant) -> None:
+        if isinstance(node.value, str):
+            match = ENTRYPOINT_RE.match(node.value)
+            if match:
+                self.visitor.read(match.group(1), node)
         self.generic_visit(node)
 
 

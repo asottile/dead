@@ -141,6 +141,7 @@ def test_deleted_file_dont_raise_error(git_dir):
 def test_setup_py_entrypoints_mark_as_used(git_dir, capsys):
     git_dir.join('setup.py').write(
         'from setuptools import setup\n'
+        'print(1)\n'
         'setup(name="x", entry_points={"console_scripts": ["X=x:main"]})\n',
     )
     git_dir.join('x.py').write('def main(): ...')
