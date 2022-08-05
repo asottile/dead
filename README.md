@@ -9,7 +9,9 @@ dead simple python dead code detection
 
 ## installation
 
-`pip install dead`
+```bash
+pip install dead
+```
 
 
 ## cli
