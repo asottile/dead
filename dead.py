@@ -109,7 +109,8 @@ class Visitor(ast.NodeVisitor):
         for stmt in node.body:
             if (
                     isinstance(stmt, ast.Expr) and
-                    isinstance(stmt.value, (ast.Str, ast.Ellipsis))
+                    isinstance(stmt.value, ast.Constant) and
+                    isinstance(stmt.value.value, (str, type(Ellipsis)))
             ):
                 continue  # docstring or ...
             elif isinstance(stmt, ast.Pass):
@@ -162,8 +163,11 @@ class Visitor(ast.NodeVisitor):
                 isinstance(node.value, (ast.Tuple, ast.List))
         ):
             for elt in node.value.elts:
-                if isinstance(elt, ast.Str):
-                    self.read(elt.s, elt)
+                if (
+                        isinstance(elt, ast.Constant) and
+                        isinstance(elt.value, str)
+                ):
+                    self.read(elt.value, elt)
 
         self.generic_visit(node)
 
