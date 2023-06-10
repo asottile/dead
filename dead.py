@@ -276,8 +276,9 @@ def parse_entry_points_setup_cfg(visitor: Visitor) -> None:
             for line in v.strip().splitlines():
                 match = ENTRYPOINT_RE.match(line)
                 if match:
-                    node = ast.fix_missing_locations(ast.Str(match.group(1)))
-                    visitor.read(match.group(1), node)
+                    node = ast.Constant(match[1])
+                    node = ast.fix_missing_locations(node)
+                    visitor.read(match[1], node)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
