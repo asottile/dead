@@ -313,10 +313,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     visitor = Visitor()
     if args.disable_filelines:
-        visitor.disabled = set(
-            (fl for fl in open(args.disable_filelines).read().splitlines()
-             if fl and not fl.startswith('#'))
-        )
+        visitor.disabled = {
+            fl for fl in open(args.disable_filelines).read().splitlines()
+            if fl and not fl.startswith('#')
+        }
 
     parse_entry_points_setup_py(visitor)
     parse_entry_points_setup_cfg(visitor)
