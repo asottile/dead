@@ -13,6 +13,7 @@ from typing import DefaultDict
 from typing import Generator
 from typing import NewType
 from typing import Pattern
+from typing import Protocol
 from typing import Sequence
 from typing import Set
 from typing import Union
@@ -36,6 +37,11 @@ TYPE_IGNORE_RE = re.compile(
 TYPE_FUNC_RE = re.compile(r'^(\(.*?\))\s*->\s*(.*)$')
 DISABLE_COMMENT_RE = re.compile(r'\bdead\s*:\s*disable')
 STUB_EXCEPTIONS = frozenset(('AssertionError', 'NotImplementedError'))
+
+
+class _HasLineno(Protocol):
+    @property
+    def lineno(self) -> int: ...
 
 
 class Scope:
@@ -79,14 +85,14 @@ class Visitor(ast.NodeVisitor):
     def _file_line(self, filename: str, line: int) -> FileLine:
         return FileLine(f'{filename}:{line}')
 
-    def definition_str(self, node: ast.AST) -> FileLine:
+    def definition_str(self, node: _HasLineno) -> FileLine:
         return self._file_line(self.filename, node.lineno)
 
-    def define(self, name: str, node: ast.AST) -> None:
+    def define(self, name: str, node: _HasLineno) -> None:
         if not self.is_test:
             self.scopes[-1].defines[name].add(self.definition_str(node))
 
-    def read(self, name: str, node: ast.AST) -> None:
+    def read(self, name: str, node: _HasLineno) -> None:
         for scope in self.scopes:
             if self.is_test:
                 scope.reads_tests[name].add(self.definition_str(node))
@@ -204,10 +210,8 @@ class Visitor(ast.NodeVisitor):
 
         for part in parts:
             ast_obj = ast.parse(part, f'<{self.filename}:{lineno}: comment>')
-            # adjust the line number to be that of the comment
-            for descendant in ast.walk(ast_obj):
-                if 'lineno' in descendant._attributes:
-                    descendant.lineno = lineno
+            ast_obj.body[0].lineno = lineno
+            ast.fix_missing_locations(ast_obj)
 
             self.visit(ast_obj)
 
