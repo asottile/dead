@@ -65,7 +65,7 @@ class Visitor(ast.NodeVisitor):
             filename: str,
             *,
             is_test: bool,
-    ) -> Generator[None, None, None]:
+    ) -> Generator[None]:
         orig_filename, self.filename = self.filename, filename
         orig_is_test, self.is_test = self.is_test, is_test
         try:
@@ -75,7 +75,7 @@ class Visitor(ast.NodeVisitor):
             self.is_test = orig_is_test
 
     @contextlib.contextmanager
-    def scope(self) -> Generator[None, None, None]:
+    def scope(self) -> Generator[None]:
         self.scopes.append(Scope())
         try:
             yield
@@ -220,7 +220,7 @@ def _filenames(
         files_re: Pattern[str],
         exclude_re: Pattern[str],
         tests_re: Pattern[str],
-) -> Generator[tuple[str, bool], None, None]:
+) -> Generator[tuple[str, bool]]:
     # TODO: zsplit is more correct than splitlines
     out = subprocess.check_output(('git', 'ls-files')).decode()
     for filename in out.splitlines():
