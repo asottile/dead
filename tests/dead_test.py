@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 
 import pytest
 
@@ -304,8 +303,7 @@ def test_ignored_arguments(git_dir):
     assert not dead.main(())
 
 
-@pytest.mark.xfail(sys.version_info < (3, 8), reason='py38+')
-def test_unused_posonly_argument(git_dir, capsys):  # pragma: >=3.8 cover
+def test_unused_posonly_argument(git_dir, capsys):
     git_dir.join('f.py').write(
         'def f(unused, /):\n'
         '    return 1\n'

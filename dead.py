@@ -9,19 +9,18 @@ import os.path
 import re
 import subprocess
 import tokenize
+from collections.abc import Generator
+from collections.abc import Sequence
+from re import Pattern
 from typing import DefaultDict
-from typing import Generator
 from typing import NewType
-from typing import Pattern
 from typing import Protocol
-from typing import Sequence
-from typing import Set
 from typing import Union
 
 from identify.identify import tags_from_path
 
 FileLine = NewType('FileLine', str)
-UsageMap = DefaultDict[str, Set[FileLine]]
+UsageMap = DefaultDict[str, set[FileLine]]
 FunctionDef = Union[ast.AsyncFunctionDef, ast.FunctionDef]
 # https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L102-L104
 TYPE_COMMENT_RE = re.compile(r'^#\s*type:\s*')
