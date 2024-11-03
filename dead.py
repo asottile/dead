@@ -37,6 +37,10 @@ TYPE_FUNC_RE = re.compile(r'^(\(.*?\))\s*->\s*(.*)$')
 DISABLE_COMMENT_RE = re.compile(r'\bdead\s*:\s*disable')
 STUB_EXCEPTIONS = frozenset(('AssertionError', 'NotImplementedError'))
 
+# COLORS to higlight the output
+UNC = '\033[91m'
+ENDUC = '\033[0m'
+
 
 class _HasLineno(Protocol):
     @property
@@ -346,13 +350,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             elif k not in scope.reads and not v:
                 pass  # all references disabled
             elif k not in scope.reads and k not in scope.reads_tests:
-                print(f'{k} is never read, defined in {", ".join(sorted(v))}')
+                for fnameno in v:
+                    print(f'{fnameno}: {UNC}\'{k}\'{ENDUC} is never read.')
                 retv = 1
             elif k not in scope.reads:
-                print(
-                    f'{k} is only referenced in tests, '
-                    f'defined in {", ".join(sorted(v))}',
-                )
+                for fnameno in v:
+                    print(
+                        f'{fnameno}: {UNC}\'{k}\'{ENDUC}'
+                        'is only referenced in tests.'
+                        )
                 retv = 1
 
     if unused_ignores:
