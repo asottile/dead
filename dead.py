@@ -357,8 +357,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 for fnameno in v:
                     print(
                         f'{fnameno}: {UNC}\'{k}\'{ENDUC}'
-                        'is only referenced in tests.'
-                        )
+                        'is only referenced in tests.',
+                    )
                 retv = 1
 
     if unused_ignores:
