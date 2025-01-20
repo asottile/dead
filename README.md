@@ -39,7 +39,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/asottile/dead
-    rev: v1.5.2
+    rev: v2.0.0
     hooks:
     -   id: dead
 ```
