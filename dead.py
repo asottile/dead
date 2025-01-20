@@ -271,7 +271,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         '--tests', default='(^|/)(tests?|testing)/',
         help='regex to mark files as tests, default %(default)r',
     )
-    parser.add_argument('--track-args', action='store_true')
+    parser.add_argument(
+        '--track-args', action='store_true',
+        help='opt into unused argument tracking',
+    )
+    parser.add_argument(
+        '--symbol-allowlist',
+        default=os.devnull,
+        help='filename for symbol allowlist, one symbol per line',
+    )
     args = parser.parse_args(argv)
 
     # TODO:
@@ -283,6 +291,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     #   ...
 
     # TODO: v common for methods to only exist to satisfy interface
+
+    with open(args.symbol_allowlist) as allowlist_f:
+        allowed_symbols = frozenset(allowlist_f.read().splitlines())
 
     visitor = Visitor(track_args=args.track_args)
 
@@ -313,7 +324,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 unused_ignores.difference_update(v)
                 v = v - visitor.disabled
 
-            if k.startswith('__') and k.endswith('__'):
+            if k in allowed_symbols:
+                pass
+            elif k.startswith('__') and k.endswith('__'):
                 pass  # skip magic methods, probably an interface
             elif k in {'cls', 'self'}:
                 pass  # ignore conventional cls / self
