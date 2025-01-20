@@ -177,7 +177,7 @@ def test_partially_disabled(git_dir, capsys):
 def test_unused_argument(git_dir, capsys):
     git_dir.join('f.py').write('def f(a, *b, c, **d): return 1\nf')
     subprocess.check_call(('git', 'add', '.'))
-    assert dead.main(())
+    assert dead.main(('--track-args',))
     out, _ = capsys.readouterr()
     assert out == (
         'a is never read, defined in f.py:1\n'
@@ -190,7 +190,7 @@ def test_unused_argument(git_dir, capsys):
 def test_unused_argument_in_scope(git_dir, capsys):
     git_dir.join('f.py').write('def f(g): return 1\ndef g(): pass\ng\nf\n')
     subprocess.check_call(('git', 'add', '.'))
-    assert dead.main(())
+    assert dead.main(('--track-args',))
     out, _ = capsys.readouterr()
     assert out == 'g is never read, defined in f.py:1\n'
 
@@ -198,7 +198,7 @@ def test_unused_argument_in_scope(git_dir, capsys):
 def test_using_an_argument(git_dir):
     git_dir.join('f.py').write('def f(g): return g\nf')
     subprocess.check_call(('git', 'add', '.'))
-    assert not dead.main(())
+    assert not dead.main(('--track-args',))
 
 
 def test_ignore_unused_arguments_stubs(git_dir):
@@ -230,7 +230,7 @@ def test_ignore_unused_arguments_stubs(git_dir):
         'C.func, func2, func3, func4, func5, func6, func7, func8, func9\n',
     )
     subprocess.check_call(('git', 'add', '.'))
-    assert not dead.main(())
+    assert not dead.main(('--track-args',))
 
 
 def test_ignored_arguments(git_dir):
@@ -241,7 +241,7 @@ def test_ignored_arguments(git_dir):
         'C.f',
     )
     subprocess.check_call(('git', 'add', '.'))
-    assert not dead.main(())
+    assert not dead.main(('--track-args',))
 
 
 def test_unused_posonly_argument(git_dir, capsys):
@@ -251,9 +251,16 @@ def test_unused_posonly_argument(git_dir, capsys):
         'print(f)\n',
     )
     subprocess.check_call(('git', 'add', '.'))
-    assert dead.main(())
+    assert dead.main(('--track-args',))
     out, _ = capsys.readouterr()
     assert out == 'unused is never read, defined in f.py:1\n'
+
+
+def test_ignore_unused_arguments_by_default(git_dir, capsys):
+    git_dir.join('f.py').write('def f(unused): pass\nf(1)\n')
+    subprocess.check_call(('git', 'add', '.'))
+    assert dead.main(()) == 0
+    assert not dead.main(('--track-args',))
 
 
 def test_unused_annotated_assignment(git_dir, capsys):
