@@ -39,7 +39,9 @@ class Scope:
 
 
 class Visitor(ast.NodeVisitor):
-    def __init__(self) -> None:
+    def __init__(self, *, track_args: bool) -> None:
+        self._track_args = track_args
+
         self.filename = ''
         self.is_test = False
         self.previous_scopes: list[Scope] = []
@@ -130,7 +132,7 @@ class Visitor(ast.NodeVisitor):
     def visit_FunctionDef(self, node: FunctionDef) -> None:
         self.define(node.name, node)
         with self.scope():
-            if not self._is_stub_function(node):
+            if self._track_args and not self._is_stub_function(node):
                 for arg in (
                         *node.args.posonlyargs,
                         *node.args.args,
@@ -269,6 +271,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         '--tests', default='(^|/)(tests?|testing)/',
         help='regex to mark files as tests, default %(default)r',
     )
+    parser.add_argument('--track-args', action='store_true')
     args = parser.parse_args(argv)
 
     # TODO:
@@ -281,7 +284,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # TODO: v common for methods to only exist to satisfy interface
 
-    visitor = Visitor()
+    visitor = Visitor(track_args=args.track_args)
 
     parse_entry_points_setup_py(visitor)
     parse_entry_points_setup_cfg(visitor)
