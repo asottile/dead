@@ -274,3 +274,12 @@ def test_unused_annotated_assignment(git_dir, capsys):
     assert dead.main(())
     out, _ = capsys.readouterr()
     assert out == 'SOME_CONSTANT is never read, defined in f.py:2\n'
+
+
+def test_allowed_symbols_file(git_dir, tmp_path, capsys):
+    allowed = tmp_path.joinpath('allowed')
+    allowed.write_text('unused_function\n')
+    git_dir.join('f.py').write('def unused_function(): pass\n')
+    subprocess.check_call(('git', 'add', '.'))
+    assert dead.main(())
+    assert not dead.main(('--symbol-allowlist', str(allowed)))
