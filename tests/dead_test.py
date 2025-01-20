@@ -83,6 +83,7 @@ def git_dir(tmpdir):
     (
         # assign
         'x = 1\nprint(x)\n',
+        pytest.param('x: int = 1\nprint(x)\n', id='annotated assignment'),
         # function
         'def f(): ...\n'
         'print(f())\n',
@@ -313,3 +314,16 @@ def test_unused_posonly_argument(git_dir, capsys):
     assert dead.main(())
     out, _ = capsys.readouterr()
     assert out == 'unused is never read, defined in f.py:1\n'
+
+
+def test_unused_annotated_assignment(git_dir, capsys):
+    git_dir.join('f.py').write(
+        'from typing import Final\n'
+        'SOME_CONSTANT: Final = 123\n'
+        'x = {}\n'
+        'x[1]: int\n',
+    )
+    subprocess.check_call(('git', 'add', '.'))
+    assert dead.main(())
+    out, _ = capsys.readouterr()
+    assert out == 'SOME_CONSTANT is never read, defined in f.py:2\n'

@@ -176,7 +176,10 @@ class Visitor(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    # TODO: AnnAssign
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if isinstance(node.target, ast.Name):
+            self.define(node.target.id, node)
+        self.generic_visit(node)
 
     def visit_Name(self, node: ast.Name) -> None:
         if isinstance(node.ctx, ast.Load):
