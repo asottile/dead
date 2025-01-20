@@ -19,57 +19,6 @@ def test_dead_disable_regex_not_matching(s):
     assert not dead.DISABLE_COMMENT_RE.search(s)
 
 
-@pytest.mark.parametrize(
-    'string',
-    (
-        '# type: (int, int) -> float',
-        '# type: ignore',
-        '# type: ClassVar[str]',
-        '# type: (int, int) -> float # dead: disable',
-        '# type: ignore # dead: disable',
-        '# type: ClassVar[str] # dead: disable',
-    ),
-)
-def test_type_regex_matching(string):
-    assert dead.TYPE_COMMENT_RE.search(string)
-
-
-@pytest.mark.parametrize(
-    'string',
-    (
-        '#type:ignore',
-        '# type: ignore',
-        '# type: ignore[no-any-return]',
-        '# type: ignore   [no-any-return]',
-        '# type: ignore[no-any-return,attribute]',
-        '# type: ignore[no-any-return  ,attribute ]',
-        '#type:ignore # dead: disable',
-        '# type: ignore # dead: disable',
-        '# type: ignore[no-any-return] # dead: disable',
-        '# type: ignore   [no-any-return] # dead: disable',
-        '# type: ignore[no-any-return,attribute] # dead: disable',
-        '# type: ignore[no-any-return  ,attribute ] # dead: disable',
-    ),
-)
-def test_type_ignore_regex_matching(string):
-    assert dead.TYPE_IGNORE_RE.search(string)
-
-
-@pytest.mark.parametrize(
-    'string',
-    (
-        '# type: ignore[$omething]',
-        '# type: ignore{no-any-return}',
-        '# type: ignore[]',
-        '# type: ignore[$omething] # dead: disable',
-        '# type: ignore{no-any-return} # dead: disable',
-        '# type: ignore[] # dead: disable',
-    ),
-)
-def test_type_ignore_regex_not_matching(string):
-    assert not dead.TYPE_IGNORE_RE.search(string)
-
-
 @pytest.fixture
 def git_dir(tmpdir):
     with tmpdir.as_cwd():
@@ -100,15 +49,6 @@ def git_dir(tmpdir):
         'import sys\n'
         'def unique_function(): ...\n'
         'sys.modules[__name__].unique_function()\n',
-        # accessed from a variable type comment
-        'MyStr = str\n'
-        'x = "hi"  # type: MyStr\n'
-        'print(x)\n',
-        # accessed from a function type comment
-        'MyStr = str  # type alias\n'
-        'def f(): # type: () -> MyStr\n'
-        '    ...\n'
-        'f()\n',
         # magic methods are ok
         'class C:\n'
         '   def __str__(self): return "hi"\n'
@@ -224,7 +164,7 @@ def test_unused_dead_disable_comment(git_dir, capsys):
 
 def test_partially_disabled(git_dir, capsys):
     git_dir.join('f.py').write(
-        'x = 1\n'
+        'x = 1  # unrelated comment\n'
         'x = 1  # dead: disable\n'
         'x = 1\n',
     )

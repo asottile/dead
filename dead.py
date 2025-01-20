@@ -22,18 +22,6 @@ from identify.identify import tags_from_path
 FileLine = NewType('FileLine', str)
 UsageMap = DefaultDict[str, set[FileLine]]
 FunctionDef = Union[ast.AsyncFunctionDef, ast.FunctionDef]
-# https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L102-L104
-TYPE_COMMENT_RE = re.compile(r'^#\s*type:\s*')
-# The following regex largely conforms to:
-# https://github.com/python/typed_ast/blob/55420396/ast27/Parser/tokenizer.c#L1400
-# However, it also supports MyPy's extended ignore syntax:
-# https://github.com/python/mypy/issues/7239
-TYPE_IGNORE_RE = re.compile(
-    TYPE_COMMENT_RE.pattern +
-    r'ignore\s*(?:\[[\w-]+(?:\s*,\s*[\w-]+)*\s*\]\s*)?(#|$)',
-)
-# https://github.com/python/typed_ast/blob/55420396/ast27/Grammar/Grammar#L147
-TYPE_FUNC_RE = re.compile(r'^(\(.*?\))\s*->\s*(.*)$')
 DISABLE_COMMENT_RE = re.compile(r'\bdead\s*:\s*disable')
 STUB_EXCEPTIONS = frozenset(('AssertionError', 'NotImplementedError'))
 
@@ -196,26 +184,6 @@ class Visitor(ast.NodeVisitor):
     def visit_comment(self, lineno: int, line: str) -> None:
         if DISABLE_COMMENT_RE.search(line):
             self.disabled.add(self._file_line(self.filename, lineno))
-
-        if not TYPE_COMMENT_RE.match(line) or TYPE_IGNORE_RE.match(line):
-            return
-
-        line = line.split(':', 1)[1].strip()
-        func_match = TYPE_FUNC_RE.match(line)
-        if not func_match:
-            parts: tuple[str, ...] = (line,)
-        else:
-            parts = (
-                func_match.group(1).replace('*', ''),
-                func_match.group(2).strip(),
-            )
-
-        for part in parts:
-            ast_obj = ast.parse(part, f'<{self.filename}:{lineno}: comment>')
-            ast_obj.body[0].lineno = lineno
-            ast.fix_missing_locations(ast_obj)
-
-            self.visit(ast_obj)
 
 
 def _filenames(
