@@ -99,6 +99,20 @@ class Visitor(ast.NodeVisitor):
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.define(node.name, node)
         self.generic_visit(node)
+        # this is a bad middle ground to handle TypedDict and related classes
+        # simply mark any annotated assignment directly in a class body as
+        # "used"
+        # *ideally* with full semantic analysis you'd be able to know when
+        # a dictionary literal uses the same key as a specific TypedDict
+        # and know if it is used.  unfortunately it's difficult to know
+        # statically in isolation whether a class definition is a TypedDict
+        # due to inheritance (and multiple inheritance (and module boundaries))
+        for stmt in node.body:
+            if (
+                    isinstance(stmt, ast.AnnAssign) and
+                    isinstance(stmt.target, ast.Name)
+            ):
+                self.read(stmt.target.id, stmt)
 
     def _is_stub_function(self, node: FunctionDef) -> bool:
         for stmt in node.body:

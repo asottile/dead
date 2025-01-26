@@ -276,6 +276,35 @@ def test_unused_annotated_assignment(git_dir, capsys):
     assert out == 'SOME_CONSTANT is never read, defined in f.py:2\n'
 
 
+def test_typedict_keys_used(git_dir, capsys):
+    src = '''\
+from typing import TypedDict
+
+class T(TypedDict):
+    foo: str
+    bar: str
+
+
+def f() -> T:
+    return {
+        "foo": "str1",
+        "bar": "str2",
+    }
+
+
+def g() -> None:
+    f = f()
+    print(f["foo"])
+    print(f["bar"])
+
+
+g()
+'''
+    git_dir.join('f.py').write(src)
+    subprocess.check_call(('git', 'add', '.'))
+    assert not dead.main(())
+
+
 def test_allowed_symbols_file(git_dir, tmp_path, capsys):
     allowed = tmp_path.joinpath('allowed')
     allowed.write_text('unused_function\n')
