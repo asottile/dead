@@ -340,6 +340,20 @@ f()
     assert not dead.main(())
 
 
+def test_class_methods_in_closure(git_dir):
+    src = '''\
+def f():
+    class C:
+        def handle(self): ...
+    return C
+
+f().handle()
+'''
+    git_dir.join('f.py').write(src)
+    subprocess.check_call(('git', 'add', '.'))
+    assert not dead.main(())
+
+
 def test_allowed_symbols_file(git_dir, tmp_path, capsys):
     allowed = tmp_path.joinpath('allowed')
     allowed.write_text('unused_function\n')
