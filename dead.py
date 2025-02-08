@@ -36,6 +36,7 @@ class Scope:
         self.reads: UsageMap = collections.defaultdict(set)
         self.defines: UsageMap = collections.defaultdict(set)
         self.reads_tests: UsageMap = collections.defaultdict(set)
+        self.global_names: set[str] = set()
 
 
 class Visitor(ast.NodeVisitor):
@@ -79,7 +80,12 @@ class Visitor(ast.NodeVisitor):
 
     def define(self, name: str, node: _HasLineno) -> None:
         if not self.is_test:
-            self.scopes[-1].defines[name].add(self.definition_str(node))
+            if name in self.scopes[-1].global_names:
+                target = self.scopes[0]
+            else:
+                target = self.scopes[-1]
+
+            target.defines[name].add(self.definition_str(node))
 
     def read(self, name: str, node: _HasLineno) -> None:
         for scope in self.scopes:
@@ -194,6 +200,11 @@ class Visitor(ast.NodeVisitor):
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if isinstance(node.ctx, ast.Load):
             self.read(node.attr, node)
+
+        self.generic_visit(node)
+
+    def visit_Global(self, node: ast.Global) -> None:
+        self.scopes[-1].global_names.update(node.names)
 
         self.generic_visit(node)
 
