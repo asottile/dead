@@ -276,7 +276,7 @@ def test_unused_annotated_assignment(git_dir, capsys):
     assert out == 'SOME_CONSTANT is never read, defined in f.py:2\n'
 
 
-def test_typedict_keys_used(git_dir, capsys):
+def test_typedict_keys_used(git_dir):
     src = '''\
 from typing import TypedDict
 
@@ -299,6 +299,41 @@ def g() -> None:
 
 
 g()
+'''
+    git_dir.join('f.py').write(src)
+    subprocess.check_call(('git', 'add', '.'))
+    assert not dead.main(())
+
+
+def test_global_target(git_dir):
+    src = '''\
+g = None
+
+def f():
+    global g
+    g = 2
+
+f()
+print(g)
+'''
+    git_dir.join('f.py').write(src)
+    subprocess.check_call(('git', 'add', '.'))
+    assert not dead.main(())
+
+
+@pytest.mark.xfail  # would be nice!
+def test_nonlocal_target(git_dir):
+    src = '''\
+def f():
+    def g():
+        nonlocal x
+        x = 2
+
+    x = 1
+    g()
+    return x
+
+f()
 '''
     git_dir.join('f.py').write(src)
     subprocess.check_call(('git', 'add', '.'))
